@@ -7,12 +7,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:lista_zakupow01/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
+  testWidgets('MyApp should load HomePage', (WidgetTester tester) async {
     await tester.pumpWidget(const MyApp());
 
     // Verify that our counter starts at 0.
