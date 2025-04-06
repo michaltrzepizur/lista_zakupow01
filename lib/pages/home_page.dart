@@ -2,11 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lista_zakupow01/pages/add_list_page.dart';
 import 'package:lista_zakupow01/pages/shopping_lists_page.dart';
+import 'package:lista_zakupow01/pages/shopping_list_editor.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: HomePage(),
+    );
+  }
+}
 
 class HomePage extends StatefulWidget {
-  final String userName;
-
-  const HomePage({super.key, required this.userName});
+  const HomePage({
+    super.key,
+  });
 
   @override
   HomePageState createState() => HomePageState();
@@ -15,17 +33,46 @@ class HomePage extends StatefulWidget {
 class HomePageState extends State<HomePage> {
   List<String> shoppingLists = [];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadShoppingLists(); // <- Wczytaj listy przy starcie
+  }
+
+  Future<void> _loadShoppingLists() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedLists = prefs.getStringList('shoppingLists');
+    if (savedLists != null) {
+      setState(() {
+        shoppingLists = savedLists;
+      });
+    }
+  }
+
+  Future<void> _saveShoppingLists() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('shoppingLists', shoppingLists);
+  }
+
   Future<void> _navigateToAddListPage() async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const AddListPage()),
     );
 
-    if (result != null && result is String) {
+    if (result != null && result is String && mounted) {
       setState(() {
         shoppingLists.add(result);
       });
-      print("✅ Lista dodana: $shoppingLists");
+
+      await _saveShoppingLists(); // <- Zapisz listy po dodaniu
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ShoppingListEditor(listName: result),
+        ),
+      );
     }
   }
 
@@ -33,7 +80,15 @@ class HomePageState extends State<HomePage> {
     print("🚀 Przejście do list zakupów");
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => ShoppingListsPage(shoppingLists: shoppingLists),
+        builder: (context) => ShoppingListsPage(
+          shoppingLists: shoppingLists,
+          onUpdate: (updatedLists) async {
+            setState(() {
+              shoppingLists = updatedLists;
+            });
+            await _saveShoppingLists(); // <- Zapisz po aktualizacji
+          },
+        ),
       ),
     );
   }
@@ -55,7 +110,7 @@ class HomePageState extends State<HomePage> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'Witaj ${widget.userName}',
+              'Witaj!',
               style: GoogleFonts.lora(fontSize: 25),
             ),
             const SizedBox(height: 80),
@@ -64,10 +119,16 @@ class HomePageState extends State<HomePage> {
               style: GoogleFonts.lora(fontSize: 35),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 49),
+            const SizedBox(height: 80),
             _buildButton("Stwórz listę", _navigateToAddListPage),
-            const SizedBox(height: 30),
+            const SizedBox(height: 20),
             _buildButton("Przeglądaj listy", _navigateToShoppingListsPage),
+            const SizedBox(height: 20),
+            _buildButton("Przeglądaj archiwum", () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Archiwum jeszcze nie działa")),
+              );
+            }),
           ],
         ),
       ),
@@ -79,10 +140,7 @@ class HomePageState extends State<HomePage> {
       width: 286,
       height: 52,
       child: ElevatedButton(
-        onPressed: () {
-          print("🎯 Kliknięto przycisk: $text");
-          onPressed();
-        },
+        onPressed: onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF84F1B5),
           shape: RoundedRectangleBorder(
@@ -92,7 +150,10 @@ class HomePageState extends State<HomePage> {
         child: Text(
           text,
           style: GoogleFonts.inter(
-              fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black),
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
         ),
       ),
     );
